@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cardiology Digest</title>
+<meta name="description" content="A weekly, fully automated cardiology research digest: PubMed retrieval, evidence-based filtering, abstract-faithful LLM summaries and email delivery. Built by Ike Chukwudi.">
+<link rel="canonical" href="https://digest.realikechukwu.com/">
+<meta property="og:title" content="Cardiology Digest — how it works">
+<meta property="og:description" content="Weekly cardiology evidence, curated by an automated PubMed → LLM → email pipeline.">
+<meta property="og:url" content="https://digest.realikechukwu.com/">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23b42318'/%3E%3Cpath d='M4 17h6l2.5-6 4 12 3-9 2 3H28' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fbfaf8; --surface:#ffffff; --surface-2:#f3f1ed; --ink:#1a1816; --ink-2:#4a4642; --ink-3:#7a756f;
+  --line:#e6e2dc; --accent:#b42318; --accent-soft:#fbeae8; --ok:#1f7a4d; --ok-soft:#e7f4ec; --warn:#9a6b00; --warn-soft:#fbf3dc;
+  --code-bg:#1c1b1a; --code-ink:#ece8e2;
+  --serif:"Source Serif 4",Georgia,serif; --sans:Inter,system-ui,-apple-system,sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#141312; --surface:#1c1b19; --surface-2:#242220; --ink:#f1ede7; --ink-2:#c3bdb5; --ink-3:#8e8880;
+    --line:#2f2c29; --accent:#f0705f; --accent-soft:#3a1f1b; --ok:#5fc48f; --ok-soft:#18301f; --warn:#e2b54a; --warn-soft:#332a14;
+    --code-bg:#0e0d0c;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+h1,h2,h3{font-family:var(--serif);font-weight:600;line-height:1.2;letter-spacing:-.01em;margin:0}
+h2{font-size:clamp(1.6rem,3vw,2.1rem)}
+h3{font-size:1.2rem}
+p{margin:0 0 1em}
+code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);padding:.1em .35em;border-radius:4px}
+
+/* nav */
+nav{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:24px;height:58px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;color:var(--ink);text-decoration:none}
+.brand svg{flex:none}
+.navlinks{display:flex;gap:20px;margin-left:auto;font-size:.92rem}
+.navlinks a{color:var(--ink-2);text-decoration:none}
+.navlinks a:hover{color:var(--ink)}
+@media (max-width:720px){.navlinks a:not(.btn){display:none}}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;font-weight:500;font-size:.95rem;text-decoration:none;border:1px solid transparent;transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-ghost{border-color:var(--line);color:var(--ink);background:var(--surface)}
+.navlinks .btn{padding:7px 14px;font-size:.88rem;color:#fff}
+
+/* hero */
+.hero{padding:88px 0 56px}
+.eyebrow{font-family:var(--mono);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 60%,transparent)}70%{box-shadow:0 0 0 10px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.hero h1{font-size:clamp(2.3rem,6vw,3.8rem);max-width:15ch}
+.hero .lede{font-size:1.18rem;color:var(--ink-2);max-width:60ch;margin:22px 0 30px}
+.cta{display:flex;flex-wrap:wrap;gap:12px}
+.ecg{display:block;width:100%;height:60px;margin-top:56px;color:var(--accent);opacity:.85}
+.ecg path{stroke-dasharray:1400;stroke-dashoffset:1400;animation:draw 3.2s ease-out .3s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){.ecg path{animation:none;stroke-dashoffset:0}.pulse{animation:none}}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden}
+.stat{padding:22px 22px 20px;border-right:1px solid var(--line)}
+.stat:last-child{border-right:0}
+.stat b{display:block;font-family:var(--serif);font-size:2rem;font-weight:600;line-height:1.1}
+.stat span{font-size:.86rem;color:var(--ink-3)}
+@media (max-width:720px){.stats{grid-template-columns:1fr 1fr}.stat:nth-child(2){border-right:0}.stat:nth-child(-n+2){border-bottom:1px solid var(--line)}}
+
+section{padding:84px 0 0}
+.sec-head{max-width:680px;margin-bottom:36px}
+.sec-head .k{font-family:var(--mono);font-size:.76rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px}
+.sec-head p{color:var(--ink-2);margin-top:12px}
+
+/* audience cards */
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media (max-width:820px){.grid3{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
+.card h3{font-family:var(--sans);font-size:1rem;font-weight:600;margin-bottom:6px}
+.card p{color:var(--ink-2);font-size:.95rem;margin:0}
+
+/* pipeline */
+.pipe{display:grid;grid-template-columns:repeat(6,1fr);gap:0;position:relative;margin-bottom:22px}
+.pipe button{all:unset;cursor:pointer;position:relative;padding:16px 10px 14px;text-align:center;border:1px solid var(--line);background:var(--surface);margin-left:-1px;transition:background .15s}
+.pipe button:first-child{border-radius:12px 0 0 12px;margin-left:0}
+.pipe button:last-child{border-radius:0 12px 12px 0}
+.pipe button:hover{background:var(--surface-2)}
+.pipe button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff;z-index:1}
+.pipe button[aria-selected="true"] .n{color:#fff;opacity:.8}
+.pipe button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;z-index:2}
+.pipe .n{display:block;font-family:var(--mono);font-size:.72rem;color:var(--ink-3)}
+.pipe .t{display:block;font-weight:600;font-size:.95rem}
+@media (max-width:820px){.pipe{grid-template-columns:repeat(3,1fr)}.pipe button,.pipe button:first-child,.pipe button:last-child{border-radius:0;margin:0 -1px -1px 0}}
+.stage{display:none;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px;grid-template-columns:1fr 1.1fr;gap:28px}
+.stage.on{display:grid}
+@media (max-width:820px){.stage.on{grid-template-columns:1fr}}
+.stage h3{margin-bottom:10px}
+.stage p,.stage li{color:var(--ink-2);font-size:.96rem}
+.stage ul{padding-left:18px;margin:0}
+.stage li{margin-bottom:6px}
+.stage .file{font-family:var(--mono);font-size:.78rem;color:var(--ink-3);margin-bottom:14px}
+pre{margin:0;background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:16px 18px;overflow:auto;font:12.5px/1.6 var(--mono);max-height:360px}
+pre .c{color:#8b857d}
+pre .s{color:#e6b673}
+pre .k{color:#f0857a}
+pre .f{color:#8fc7e8}
+
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}
+.pill{font-size:.78rem;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2)}
+.pill.ok{background:var(--ok-soft);border-color:transparent;color:var(--ok)}
+.pill.no{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.pill.warn{background:var(--warn-soft);border-color:transparent;color:var(--warn)}
+
+/* note anatomy */
+.anatomy{display:grid;grid-template-columns:1.05fr 1fr;gap:20px;align-items:start}
+@media (max-width:820px){.anatomy{grid-template-columns:1fr}}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;position:relative}
+.note .tag{display:inline-block;font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:5px;background:var(--accent);color:#fff;margin-right:6px}
+.note .meta{font-size:.82rem;color:var(--ink-3);margin:10px 0 4px}
+.note h3{font-size:1.15rem;margin:6px 0 14px}
+.note dl{margin:0;display:grid;gap:12px}
+.note dt{font-family:var(--mono);font-size:.72rem;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em}
+.note dd{margin:2px 0 0;font-size:.95rem}
+.rules{display:grid;gap:10px}
+.rule{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:.94rem;color:var(--ink-2)}
+.rule b{color:var(--ink)}
+.rule .i{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font:600 .8rem var(--mono)}
+
+/* sample */
+.sample{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
+.sample .bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:.84rem;color:var(--ink-3)}
+.sample .dots{display:flex;gap:6px}
+.sample .dots i{width:10px;height:10px;border-radius:50%;background:var(--line)}
+.sample .bar a{margin-left:auto;font-size:.84rem}
+.sample iframe{display:block;width:100%;height:720px;border:0;background:#fff}
+
+/* decisions */
+.dec{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+@media (max-width:820px){.dec{grid-template-columns:1fr}}
+.dec .card h3{font-family:var(--serif);font-size:1.12rem;font-weight:600;margin-bottom:8px}
+.dec .card .why{font-size:.86rem;color:var(--ink-3);margin-top:10px;border-top:1px dashed var(--line);padding-top:10px}
+
+.stack{display:flex;flex-wrap:wrap;gap:8px}
+.stack span{font-family:var(--mono);font-size:.82rem;padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+
+/* about / faq */
+.about{display:grid;grid-template-columns:1fr 1fr;gap:40px}
+@media (max-width:820px){.about{grid-template-columns:1fr}}
+details{border-bottom:1px solid var(--line);padding:14px 0}
+details summary{cursor:pointer;font-weight:500;list-style:none;display:flex;justify-content:space-between;gap:12px}
+details summary::after{content:"+";color:var(--ink-3);font-family:var(--mono)}
+details[open] summary::after{content:"–"}
+details p{color:var(--ink-2);font-size:.95rem;margin:10px 0 0}
+
+.final{margin:96px 0 0;padding:48px;border-radius:18px;background:var(--ink);color:var(--bg);display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between}
+.final h2{color:var(--bg)}
+.final p{color:color-mix(in srgb,var(--bg) 70%,transparent);margin:8px 0 0}
+@media (max-width:600px){.final{padding:28px}}
+
+footer{padding:40px 0 56px;color:var(--ink-3);font-size:.86rem}
+footer .wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between}
+footer a{color:var(--ink-2)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M4 17h6l2.5-6 4 12 3-9 2 3H28" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Cardiology Digest
+    </a>
+    <div class="navlinks">
+      <a href="#pipeline">How it works</a>
+      <a href="#summaries">Summaries</a>
+      <a href="#sample">Sample issue</a>
+      <a href="#decisions">Engineering</a>
+      <a class="btn btn-primary" href="https://docs.google.com/forms/d/e/1FAIpQLSdThTnxH5-wjgQR6F3JDZLqCyXfXtE5Kd8PmoVEnwBED5wOPw/viewform" target="_blank" rel="noopener">Subscribe</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <div class="eyebrow"><span class="pulse"></span>Every Sunday · 07:00 UTC · fully automated</div>
+    <h1>New cardiology evidence, read for you every week.</h1>
+    <p class="lede">The Cardiology Digest is a weekly email for cardiology trainees, internal medicine doctors and medical students. It screens new papers from 20 leading journals, keeps the original research and reviews, and summarises each study into a short note that stays faithful to its abstract. A pipeline I designed and built runs it end to end with no manual curation.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="https://docs.google.com/forms/d/e/1FAIpQLSdThTnxH5-wjgQR6F3JDZLqCyXfXtE5Kd8PmoVEnwBED5wOPw/viewform" target="_blank" rel="noopener">Subscribe free</a>
+      <a class="btn btn-ghost" href="#pipeline">See how it works ↓</a>
+    </div>
+    <svg class="ecg" viewBox="0 0 1000 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 34h180l14-10 12 10h40l10 6 14-36 16 52 12-22 10 0h150l14-10 12 10h40l10 6 14-36 16 52 12-22 10 0h150l14-10 12 10h40l10 6 14-36 16 52 12-22 10 0h110" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="stats" aria-label="Project at a glance">
+    <div class="stat"><b>2,700+</b><span>cardiology papers delivered</span></div>
+    <div class="stat"><b>20</b><span>journals monitored weekly</span></div>
+    <div class="stat"><b>3</b><span>specialties on one codebase</span></div>
+    <div class="stat"><b>39</b><span>automated weekly runs</span></div>
+  </div>
+</div>
+
+<section id="who">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="k">The problem</div>
+      <h2>Clinicians can't read 20 journals a week. Most of what gets published isn't for them anyway.</h2>
+      <p>Each week, the top cardiology journals and the big general medical journals publish hundreds of items. Many are editorials, letters, errata and protocols. The few trials and meta-analyses that matter get lost among them. The digest separates the two, then writes up the studies worth reading so a busy clinician can get through them in about five minutes.</p>
+    </div>
+    <div class="grid3">
+      <div class="card"><h3>Cardiology trainees</h3><p>Keep up with landmark trials and guidelines without tracking 17 specialty journals by hand.</p></div>
+      <div class="card"><h3>Internal medicine doctors</h3><p>Cardiology papers from NEJM, The Lancet and Nature, filtered for relevance before they arrive.</p></div>
+      <div class="card"><h3>Medical students</h3><p>Each paper gets a context line, the main finding and a "so what", which makes it easy to learn from.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="pipeline">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="k">The method</div>
+      <h2>Six stages, from PubMed to inbox</h2>
+      <p>A GitHub Actions workflow runs every Sunday at 07:00 UTC. It is written in Python. Each stage is a small, testable step, and the pipeline's memory is a few JSON files under version control instead of a database. Select a stage to see how it works.</p>
+    </div>
+
+    <div class="pipe" role="tablist" aria-label="Pipeline stages">
+      <button role="tab" aria-selected="true" aria-controls="st1" id="tb1"><span class="n">01</span><span class="t">Retrieve</span></button>
+      <button role="tab" aria-selected="false" aria-controls="st2" id="tb2"><span class="n">02</span><span class="t">Classify</span></button>
+      <button role="tab" aria-selected="false" aria-controls="st3" id="tb3"><span class="n">03</span><span class="t">Deduplicate</span></button>
+      <button role="tab" aria-selected="false" aria-controls="st4" id="tb4"><span class="n">04</span><span class="t">Prioritise</span></button>
+      <button role="tab" aria-selected="false" aria-controls="st5" id="tb5"><span class="n">05</span><span class="t">Summarise</span></button>
+      <button role="tab" aria-selected="false" aria-controls="st6" id="tb6"><span class="n">06</span><span class="t">Deliver &amp; learn</span></button>
+    </div>
+
+    <div class="stage on" role="tabpanel" id="st1" aria-labelledby="tb1">
+      <div>
+        <div class="file">fetch_cardiology_pubmed.py</div>
+        <h3>Query PubMed through NCBI E-utilities</h3>
+        <p>Every run makes two searches over the last 7 days:</p>
+        <ul>
+          <li><b>17 specialty journals</b> (Circulation, JACC, European Heart Journal, JAMA Cardiology, Heart Rhythm and others), all of whose content is included.</li>
+          <li><b>3 general journals</b> (NEJM, The Lancet, Nature), limited to cardiology through MeSH terms <em>or</em> title/abstract keywords.</li>
+        </ul>
+        <p style="margin-top:12px">The title/abstract fallback matters. Newly published and ahead-of-print papers often haven't been MeSH-indexed yet, so a MeSH-only search would quietly miss the newest and most important trials.</p>
+        <p>Records are fetched in batches with <code>efetch</code>, and the XML is parsed into title, abstract, authors, journal, date and publication types.</p>
+      </div>
+<pre><span class="c"># Generated query for general journals</span>
+(
+  (<span class="s">"The New England journal of medicine"</span>[jour]
+   <span class="k">OR</span> <span class="s">"Lancet"</span>[jour] <span class="k">OR</span> <span class="s">"Nature"</span>[jour])
+  <span class="k">AND</span> (
+    (<span class="s">"Cardiovascular Diseases"</span>[MeSH]
+     <span class="k">OR</span> <span class="s">"Heart Failure"</span>[MeSH]
+     <span class="k">OR</span> <span class="s">"Atrial Fibrillation"</span>[MeSH] <span class="k">OR</span> …)
+    <span class="k">OR</span>
+    (<span class="s">"cardiac"</span>[tiab] <span class="k">OR</span> <span class="s">"coronary"</span>[tiab]
+     <span class="k">OR</span> <span class="s">"heart failure"</span>[tiab] <span class="k">OR</span> …)
+  )
+)
+<span class="k">AND</span> (<span class="s">"2026/09/20"</span>[dp] : <span class="s">"2026/09/27"</span>[dp])
+
+<span class="c"># esearch → PMIDs → efetch (batched XML)</span></pre>
+    </div>
+
+    <div class="stage" role="tabpanel" id="st2" aria-labelledby="tb2" hidden>
+      <div>
+        <div class="file">classify_article()</div>
+        <h3>Sort by evidence type, not by keyword</h3>
+        <p>Each article is classified from its PubMed <em>publication types</em>, the structured labels that NLM indexers assign. The rules are explicit and deterministic:</p>
+        <ul>
+          <li><b>Excluded</b> if any type is non-substantive, or if the title shows it is a protocol paper.</li>
+          <li><b>Priority</b> if it is original research or a review <em>and</em> has an abstract.</li>
+          <li><b>Standard</b> for everything else that has an abstract.</li>
+        </ul>
+        <p style="margin-top:12px">These rules run before any model is called, so the LLM never sees editorials or letters. That saves money and leaves less room for the model to go wrong.</p>
+      </div>
+      <div>
+        <div class="file">Priority types</div>
+        <div class="pills">
+          <span class="pill ok">Randomized Controlled Trial</span><span class="pill ok">Clinical Trial</span><span class="pill ok">Meta-Analysis</span><span class="pill ok">Systematic Review</span><span class="pill ok">Multicenter Study</span><span class="pill ok">Observational Study</span><span class="pill ok">Comparative Study</span><span class="pill ok">Review</span>
+        </div>
+        <div class="file">Excluded types</div>
+        <div class="pills">
+          <span class="pill no">Editorial</span><span class="pill no">Comment</span><span class="pill no">Letter</span><span class="pill no">News</span><span class="pill no">Published Erratum</span><span class="pill no">Retraction</span><span class="pill no">Study / Trial Protocol</span>
+        </div>
+        <div class="file">Edge cases handled</div>
+        <div class="pills">
+          <span class="pill warn">"protocol" in title, no pub types</span><span class="pill warn">priority type but no abstract</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage" role="tabpanel" id="st3" aria-labelledby="tb3" hidden>
+      <div>
+        <div class="file">state/seen_pmids.json · state/sent_pmids.json</div>
+        <h3>Never send the same paper twice</h3>
+        <p>PubMed records reappear as they move from ahead-of-print to issue publication, and the 7-day window can overlap between runs. To guarantee no repeats, every PMID is tracked in two JSON files kept in git:</p>
+        <ul>
+          <li><b>seen</b>: written after a successful fetch.</li>
+          <li><b>sent</b>: written only after the email has actually been delivered.</li>
+        </ul>
+        <p style="margin-top:12px">After each run the workflow commits the updated files back to the repository. That gives an audit trail of what went out and when, and if a send fails partway, rerunning the job is safe.</p>
+      </div>
+<pre><span class="c"># .github/workflows/weekly_digest.yml (excerpt)</span>
+<span class="k">on</span>:
+  <span class="k">schedule</span>:
+    - <span class="k">cron</span>: <span class="s">"0 7 * * 0"</span>   <span class="c"># Sundays 07:00 UTC</span>
+  <span class="k">workflow_dispatch</span>: {}
+
+<span class="k">concurrency</span>:
+  <span class="k">group</span>: weekly-medical-digest
+  <span class="k">cancel-in-progress</span>: <span class="f">false</span>
+
+<span class="c"># …each specialty runs in turn, then:</span>
+github-actions[bot]
+  <span class="s">"Update sent PMIDs after weekly digest"</span></pre>
+    </div>
+
+    <div class="stage" role="tabpanel" id="st4" aria-labelledby="tb4" hidden>
+      <div>
+        <div class="file">select_for_summary()</div>
+        <h3>Put the strongest evidence first</h3>
+        <p>Each issue has a fixed budget of full summaries (10 by default). Papers are ranked by evidence weight before that budget is spent:</p>
+        <ul>
+          <li><b>1.</b> RCTs, meta-analyses, systematic reviews and large cohort or registry studies</li>
+          <li><b>2.</b> Other priority research</li>
+          <li><b>3.</b> Standard articles</li>
+        </ul>
+        <p style="margin-top:12px">Only papers with a real abstract (at least 200 characters) are eligible for a summary. Everything else still appears as a linked headline, so nothing relevant is dropped.</p>
+      </div>
+      <div class="rules">
+        <div class="rule"><span class="i">RCT</span><div><b>RCT badge</b> appears only for genuine randomised trials: either the publication type says so, or the abstract contains phrases such as "randomly assigned".</div></div>
+        <div class="rule"><span class="i">↑</span><div><b>Text fallback</b>: if indexing hasn't caught up, phrases like "nationwide", "population-based" or "multicentre" in the abstract still mark a study as high priority.</div></div>
+        <div class="rule"><span class="i">≡</span><div><b>Headlines section</b> lists every remaining paper with its journal and a link, so the email is complete without being long.</div></div>
+      </div>
+    </div>
+
+    <div class="stage" role="tabpanel" id="st5" aria-labelledby="tb5" hidden>
+      <div>
+        <div class="file">summarise_one() · OpenAI · strict JSON schema</div>
+        <h3>An editorial note for each paper, held to its abstract</h3>
+        <p>Each selected paper goes to an LLM (<code>gpt-4o-mini</code>, temperature 0.2), and the response must match a <b>strict JSON schema</b>. Free text isn't accepted, so every summary has the same shape and slots straight into the email template.</p>
+        <p>The prompt is written to keep the model faithful to the source:</p>
+        <ul>
+          <li>Use <b>only</b> the abstract provided. If a detail is missing, write "Not reported".</li>
+          <li>Report effect sizes, CIs and p-values where they exist.</li>
+          <li>Different instructions for trials, meta-analyses, reviews and guidelines.</li>
+          <li>No hype words ("breakthrough", "game-changing").</li>
+        </ul>
+      </div>
+<pre>{
+  <span class="f">"name"</span>: <span class="s">"editorial_note"</span>,
+  <span class="f">"strict"</span>: <span class="k">true</span>,
+  <span class="f">"schema"</span>: {
+    <span class="f">"type"</span>: <span class="s">"object"</span>,
+    <span class="f">"additionalProperties"</span>: <span class="k">false</span>,
+    <span class="f">"properties"</span>: {
+      <span class="f">"study_type"</span>: { <span class="c">// RCT | Meta-analysis | …</span> },
+      <span class="f">"context"</span>:    { <span class="c">// the clinical question</span> },
+      <span class="f">"finding"</span>:    { <span class="c">// primary result + stats</span> },
+      <span class="f">"so_what"</span>:    { <span class="c">// why a clinician cares</span> },
+      <span class="f">"tags"</span>:       { <span class="f">"maxItems"</span>: 4 }
+    },
+    <span class="f">"required"</span>: [<span class="s">"study_type"</span>, <span class="s">"context"</span>,
+      <span class="s">"finding"</span>, <span class="s">"so_what"</span>, <span class="s">"tags"</span>]
+  }
+}</pre>
+    </div>
+
+    <div class="stage" role="tabpanel" id="st6" aria-labelledby="tb6" hidden>
+      <div>
+        <div class="file">build_email_html() · Brevo API · Google Apps Script</div>
+        <h3>Personalised delivery and a feedback loop</h3>
+        <ul>
+          <li><b>Subscribers</b> come from a Google Sheet (filled by a sign-up form) and are filtered by specialty.</li>
+          <li><b>Each recipient</b> gets an individually rendered HTML email, sent through the Brevo transactional API with rate-limited sends. Gmail SMTP is kept as a fallback.</li>
+          <li><b>One-click feedback</b> ("Was this useful? Yes · No") goes to a Google Apps Script web app, which logs the vote to the sheet.</li>
+          <li><b>"Your Saves"</b>: papers a reader marked useful come back in their next issue, building a personal reading list.</li>
+          <li><b>Welcome emails</b> go out automatically when someone subscribes.</li>
+        </ul>
+      </div>
+      <div class="rules">
+        <div class="rule"><span class="i">⚙</span><div><b>Multi-specialty by config.</b> Cardiology, General Practice and Spine Surgery all run on the same code. Adding a specialty means adding one JSON file (journals, MeSH terms, keywords, branding). No code changes are needed.</div></div>
+        <div class="rule"><span class="i">✓</span><div><b>Safe testing.</b> <code>--test-mode</code> skips all state reads and writes, and <code>--dry-run-email</code> renders an HTML preview without sending anything.</div></div>
+        <div class="rule"><span class="i">⎋</span><div><b>Compliance.</b> Subscribers opt in, every email has an unsubscribe link, and addresses are never shared.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="summaries">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="k">Output</div>
+      <h2>What a summary looks like</h2>
+      <p>Every summarised paper becomes a card with the same four fields. The card below is unedited model output from a real issue. Readers learn where to look, and the source abstract makes any claim easy to check.</p>
+    </div>
+    <div class="anatomy">
+      <article class="note" aria-label="Example summary card">
+        <span class="tag">RCT</span><span class="pill">PCSK9 Inhibitors</span> <span class="pill">Prevention</span> <span class="pill">Diabetes</span>
+        <div class="meta">The New England Journal of Medicine · Bohula E, Marston N, Bhatia A</div>
+        <h3>Evolocumab in Patients without a Previous Myocardial Infarction or Stroke</h3>
+        <dl>
+          <div><dt>Context</dt><dd>This study examined whether evolocumab reduces the risk of major adverse cardiovascular events in patients with atherosclerosis or diabetes but without a previous myocardial infarction or stroke.</dd></div>
+          <div><dt>Finding</dt><dd>Evolocumab significantly reduced the risk of 3-point MACE (hazard ratio 0.75; 95% CI, 0.65 to 0.86; P&lt;0.001) and 4-point MACE (hazard ratio 0.81; 95% CI, 0.73 to 0.89; P&lt;0.001) compared to placebo over a median follow-up of 4.6 years, with no difference in safety events.</dd></div>
+          <div><dt>So what</dt><dd>Clinicians should consider PCSK9 inhibition with evolocumab to lower the risk of first cardiovascular events in patients with atherosclerosis or diabetes even if they have no prior myocardial infarction or stroke.</dd></div>
+        </dl>
+        <div class="meta" style="margin-top:16px">Was this useful? <u>Yes</u> · <u>No</u></div>
+      </article>
+      <div class="rules">
+        <div class="rule"><span class="i">1</span><div><b>Study type</b> is picked from a fixed list (RCT, Meta-analysis, Prospective cohort, Guideline…), so labels stay consistent from week to week.</div></div>
+        <div class="rule"><span class="i">2</span><div><b>Context</b> states the clinical question in one sentence.</div></div>
+        <div class="rule"><span class="i">3</span><div><b>Finding</b> is the primary result, with the statistics a clinician would want, phrased to suit the study design.</div></div>
+        <div class="rule"><span class="i">4</span><div><b>So what</b> is the practice implication, kept separate from the result so the reader can tell finding from interpretation.</div></div>
+        <div class="rule"><span class="i">#</span><div><b>Tags</b> (2–4, title case) let a reader skim an issue by topic.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="sample">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="k">Real output</div>
+      <h2>A real issue, as sent</h2>
+      <p>This is the pipeline's actual HTML output for the 15 January 2026 issue. The feedback and unsubscribe links are switched off in this copy.</p>
+    </div>
+    <div class="sample">
+      <div class="bar"><span class="dots"><i></i><i></i><i></i></span>Cardiology Weekly: 15 Jan 2026<a href="/sample" target="_blank" rel="noopener">Open full size ↗</a></div>
+      <iframe src="/sample" title="Sample Cardiology Weekly email" loading="lazy"></iframe>
+    </div>
+  </div>
+</section>
+
+<section id="decisions">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="k">Engineering decisions</div>
+      <h2>Built to be trusted, cheap to run and easy to audit</h2>
+      <p>The system runs on its own with nobody watching, so I designed it for reliability and transparency first.</p>
+    </div>
+    <div class="dec">
+      <div class="card">
+        <h3>Deterministic rules before the LLM</h3>
+        <p>Filtering and ranking use PubMed's own metadata in plain, testable Python. The model only writes summaries; it never decides what gets in.</p>
+        <div class="why">Predictable, explainable and cheaper: the model never processes an editorial or letter.</div>
+      </div>
+      <div class="card">
+        <h3>Strict schema in place of free text</h3>
+        <p>Structured outputs remove a whole class of failures: missing fields, chatty preambles and broken formatting all disappear. The template never has to guess.</p>
+        <div class="why">With medical content, a consistent structure makes errors easy to spot.</div>
+      </div>
+      <div class="card">
+        <h3>State in git, not in a database</h3>
+        <p>The PMIDs that have been seen or sent are stored as JSON and committed by the workflow. There's no infrastructure to maintain, and the commit history is a full delivery log.</p>
+        <div class="why">The pipeline has run weekly since January 2026 with no server and no database.</div>
+      </div>
+      <div class="card">
+        <h3>Configuration over code</h3>
+        <p>Journals, MeSH terms, keywords, branding and feedback flags are all set in a JSON config for each specialty. GP and Spine Surgery were added without touching the pipeline logic.</p>
+        <div class="why">Covering a new specialty takes an afternoon, not a refactor.</div>
+      </div>
+    </div>
+
+    <div class="sec-head" style="margin:48px 0 16px"><div class="k">Stack</div></div>
+    <div class="stack">
+      <span>Python 3.12</span><span>NCBI E-utilities</span><span>PubMed / MeSH</span><span>OpenAI structured outputs</span><span>GitHub Actions</span><span>Brevo API</span><span>Google Sheets API</span><span>Google Apps Script</span><span>pytest</span>
+    </div>
+  </div>
+</section>
+
+<section id="about">
+  <div class="wrap about">
+    <div>
+      <div class="sec-head" style="margin-bottom:16px">
+        <div class="k">Who's behind it</div>
+        <h2>Built by a physician who writes code</h2>
+      </div>
+      <p style="color:var(--ink-2)">The Cardiology Digest is published by <b>Ike Chukwudi</b>, a UK-based physician with an academic interest in cardiology research and medical education. I designed and built the whole pipeline myself: the PubMed retrieval, the evidence filtering, the LLM summarisation, email delivery and the reader feedback loop.</p>
+      <p style="color:var(--ink-2)">More about me and my other projects is at <a href="https://realikechukwu.com/">realikechukwu.com</a>. The source code is available on request.</p>
+    </div>
+    <div>
+      <details><summary>What's in each issue?</summary><p>Summaries of recently published cardiology research, key trial findings, brief clinical context for trainees and students, and links to the original journal articles. The content is educational and non-promotional.</p></details>
+      <details><summary>How often, and to how many people?</summary><p>Weekly, every Sunday. The list has fewer than 200 recipients and grows gradually through opt-in.</p></details>
+      <details><summary>Why am I receiving this email?</summary><p>Subscribers opted in through this website or were personally invited and confirmed their interest. No purchased, rented or third-party lists are used.</p></details>
+      <details><summary>How do I unsubscribe?</summary><p>Every email has an unsubscribe link, and requests take effect immediately. You can also reply to any issue to be removed.</p></details>
+      <details><summary>Privacy</summary><p>Email addresses are used only to deliver the digest and are never shared with third parties. See the <a href="https://realikechukwu.com/privacy-policy/">privacy policy</a>.</p></details>
+      <details><summary>Contact</summary><p>Questions about the newsletter, subscriptions or data use: <a href="mailto:digest@realikechukwu.com">digest@realikechukwu.com</a></p></details>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="final">
+    <div>
+      <h2>Get the next issue on Sunday.</h2>
+      <p>Free, weekly, and you can unsubscribe in one click.</p>
+    </div>
+    <a class="btn btn-primary" href="https://docs.google.com/forms/d/e/1FAIpQLSdThTnxH5-wjgQR6F3JDZLqCyXfXtE5Kd8PmoVEnwBED5wOPw/viewform" target="_blank" rel="noopener">Subscribe to the Cardiology Digest</a>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Ike Chukwudi · Cardiology Digest</span>
+    <span><a href="https://realikechukwu.com/">realikechukwu.com</a> · <a href="https://realikechukwu.com/privacy-policy/">Privacy</a> · <a href="mailto:digest@realikechukwu.com">digest@realikechukwu.com</a></span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  const tabs=[...document.querySelectorAll('.pipe [role=tab]')];
+  function select(t){
+    tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',on);x.tabIndex=on?0:-1;
+      const p=document.getElementById(x.getAttribute('aria-controls'));p.hidden=!on;p.classList.toggle('on',on);});
+  }
+  tabs.forEach((t,i)=>{
+    t.addEventListener('click',()=>select(t));
+    t.addEventListener('keydown',e=>{
+      const d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;
+      if(d){const n=tabs[(i+d+tabs.length)%tabs.length];select(n);n.focus();}
+    });
+  });
+  select(tabs[0]);
+})();
+</script>
+</body>
+</html>
